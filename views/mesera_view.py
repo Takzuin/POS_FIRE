@@ -34,10 +34,14 @@ class MeseraView(ft.Column):
         self.update_tables_grid()
         self.category_dropdown.options = [ft.dropdown.Option(cat) for cat in self.menu_data.keys()]
         self.update()
+        print("Mesas obtenidas de Firebase:", self.tables_data)
+        self.update_tables_grid()
+        self.update()
 
     def update_tables_grid(self):
         """Recarga la cuadrícula de mesas a partir de self.tables_data."""
         self.tables_grid.controls.clear()
+        
         for table_data in self.tables_data:
             is_occupied = table_data["status"] == "occupied"
             table_card = ft.Container(
@@ -63,6 +67,8 @@ class MeseraView(ft.Column):
                 )
             )
             self.tables_grid.controls.append(table_card)
+            print(f"- Mesa ID {table_data['id']} con estado {table_data['status']}")
+        print("Rendering", len(self.tables_data), "mesas")
         self.update()
 
     def table_clicked(self, e: ft.ContainerTapEvent):
@@ -158,12 +164,12 @@ class MeseraView(ft.Column):
     def build(self):
         # --- Controles de la Interfaz ---
         self.tables_grid = ft.GridView(
-            expand=True,
-            max_extent=150,
-            child_aspect_ratio=1.0,
-            spacing=10,
-            run_spacing=10,
-        )
+        max_extent=150,
+        child_aspect_ratio=1.0,
+        spacing=10,
+        run_spacing=10,
+        height=500  # 👈 Dale una altura fija para que sea visible
+)
 
         # Panel de Pedidos (inicialmente deshabilitado)
         self.order_title = ft.Text("Seleccione una mesa para ver el pedido", size=20, weight=ft.FontWeight.BOLD)
@@ -200,7 +206,7 @@ class MeseraView(ft.Column):
                     ft.Column([
                         ft.Text("Mesas", size=24, weight=ft.FontWeight.BOLD),
                         self.tables_grid
-                    ], expand=4),
+                    ], expand=1),
                     
                     ft.VerticalDivider(),
 
