@@ -5,3 +5,6 @@ output.txt
 /views/__pycache__
 views/__pycache__/caja_view.cpython-312.pyc
 /views/__pycache__
+views/__pycache__/administracion_view.cpython-312.pyc
+views/__pycache__/administracion_view.cpython-312.pyc
+*.pyc
