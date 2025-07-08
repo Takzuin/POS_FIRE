@@ -1,410 +1,565 @@
 import flet as ft
-import database as db
+import databasefire as db
 
-class MeseraView(ft.Column):
-    def __init__(self):
-        super().__init__(expand=True, spacing=20)
-        self.selected_table_container = None
-        self.selected_table_data = None
-        self.tables_data = []
-        self.menu_data = {}
+def MeseraView(page):
+    mesas_list = ft.Column()
 
-        # Inicializa los controles
-        self.tables_grid = ft.GridView(
-            max_extent=150,
-            child_aspect_ratio=1.0,
-            spacing=10,
-            run_spacing=10,
-            expand=True,
-        )
-
-        self.order_title = ft.Text("Seleccione una mesa para gestionar", size=20, weight=ft.FontWeight.BOLD)
-        
-        # Controles para asignar cliente
-        self.client_name_input = ft.TextField(label="Nombre del Cliente", width=200)
-        self.group_size_dropdown = ft.Dropdown(label="Tamaño del Grupo", options=[], width=150)
-        self.assign_client_button = ft.ElevatedButton(
-            "Asignar Cliente", 
-            icon=ft.Icons.PERSON_ADD, 
-            on_click=self.assign_client,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_400, color=ft.Colors.WHITE)
-        )
-        self.free_table_button = ft.ElevatedButton(
-            "Liberar Mesa", 
-            icon=ft.Icons.CLEAR, 
-            on_click=self.free_table,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.RED_400, color=ft.Colors.WHITE)
-        )
-        
-        # Controles para pedido
-        self.category_dropdown = ft.Dropdown(label="Categoría", options=[], on_change=self.update_item_dropdown, width=200)
-        self.item_dropdown = ft.Dropdown(label="Item", options=[], width=250)
-        self.order_list = ft.Column(spacing=5, scroll=ft.ScrollMode.AUTO)
-        self.order_total = ft.Text("Total: $0.00", weight=ft.FontWeight.BOLD, size=16)
-
-        self.order_panel = ft.Column(
-            disabled=True,
-            spacing=15,
-            controls=[
-                self.order_title,
-                
-                # Sección de asignación de cliente - COLORES ADAPTATIVOS
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("Asignación de Cliente:", weight=ft.FontWeight.BOLD, size=16),
-                        ft.Row([
-                            self.client_name_input,
-                            self.group_size_dropdown,
-                        ]),
-                        ft.Row([
-                            self.assign_client_button,
-                            self.free_table_button
-                        ])
-                    ], spacing=10),
-                    padding=15,
-                    border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-                    border_radius=8,
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST
-                ),
-                
-                ft.Divider(),
-                
-                # Sección de pedido - COLORES ADAPTATIVOS
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("Gestión de Pedido:", weight=ft.FontWeight.BOLD, size=16),
-                        ft.Row([self.category_dropdown, self.item_dropdown]),
-                        ft.FilledButton("Agregar Item al Pedido", icon=ft.Icons.ADD, on_click=self.add_item_to_order),
-                        ft.Text("Resumen del Pedido:", weight=ft.FontWeight.BOLD),
-                        ft.Container(
-                            content=self.order_list, 
-                            border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT), 
-                            border_radius=8, 
-                            padding=10, 
-                            height=150,  # Altura aumentada
-                            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST
-                        ),
-                        self.order_total
-                    ], spacing=10),
-                    padding=15,
-                    border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-                    border_radius=8,
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST
-                )
-            ]
-        )
-
-        # Crear los controles de estadísticas como atributos para poder actualizarlos
-        self.stats_total = ft.Text(f"Total de mesas: {len(self.tables_data)}", size=16)
-        self.stats_occupied = ft.Text(f"Mesas ocupadas: {len([t for t in self.tables_data if t.get('status') == 'occupied'])}", size=16)
-
-        # Estructura mejorada con mejor distribución del espacio
-        self.controls.extend([
-            ft.Container(
-                content=ft.Row([
-                    # Columna izquierda - Mesas
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Mesas", size=24, weight=ft.FontWeight.BOLD),
-                            ft.Container(
-                                content=self.tables_grid,
-                                expand=True,
-                                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-                                border_radius=8,
-                                padding=10
-                            )
-                        ], spacing=10),
-                        expand=2  # Más espacio para las mesas
-                    ),
-
-                    ft.VerticalDivider(),
-
-                    # Columna derecha - Acciones
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Acciones", size=24, weight=ft.FontWeight.BOLD),
-                            ft.ElevatedButton(
-                                "Agregar Mesa", 
-                                icon=ft.Icons.ADD, 
-                                on_click=self.add_table,
-                                style=ft.ButtonStyle(
-                                    bgcolor=ft.Colors.GREEN_400,
-                                    color=ft.Colors.WHITE
-                                )
-                            ),
-                            ft.ElevatedButton(
-                                "Eliminar Última Mesa", 
-                                icon=ft.Icons.DELETE, 
-                                on_click=self.remove_last_table,
-                                style=ft.ButtonStyle(
-                                    bgcolor=ft.Colors.RED_400,
-                                    color=ft.Colors.WHITE
-                                )
-                            ),
-                            ft.Divider(),
-                            self.stats_total,
-                            self.stats_occupied,
-                        ], 
-                        expand=1, 
-                        spacing=15, 
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER)
-                    )
-                ], expand=True, spacing=20),
-                expand=True
-            ),
+    def cargar_mesas():
+        """Carga todas las mesas desde Firestore y las muestra en la UI."""
+        try:
+            lista_de_mesas = db.get_all_mesas()
+            lista_de_meseros = db.get_all_meseros()
             
-            ft.Divider(height=10, color=ft.Colors.GREY_300),
-            
-            # Panel de pedidos con altura AUMENTADA y colores adaptativos
-            ft.Container(
-                content=self.order_panel,
-                height=400,  # Altura aumentada de 300 a 400
-                padding=15,
-                border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=8,
-                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST  # Color adaptativo
-            )
-        ])
-
-        self.did_mount = self.on_did_mount
-
-    def on_did_mount(self):
-        if db.IS_FIREBASE_INITIALIZED:
-            self.load_data_from_db()
-        else:
-            self.tables_grid.controls.append(ft.Text("Error: No se pudo conectar a Firebase.", color=ft.Colors.RED))
-            self.update()
-
-    def load_data_from_db(self):
-        self.tables_data = db.get_all_tables()
-        self.menu_data = db.get_menu()
-
-        self.update_tables_grid()
-        self.category_dropdown.options = [ft.dropdown.Option(cat) for cat in self.menu_data.keys()]
-        
-        # Actualizar las opciones del dropdown de tamaño de grupo basado en la capacidad máxima
-        max_capacity = max([t.get('capacity', 4) for t in self.tables_data]) if self.tables_data else 4
-        self.group_size_dropdown.options = [ft.dropdown.Option(str(i)) for i in range(1, max_capacity + 1)]
-        
-        self.update_stats()
-        self.update()
-
-    def update_tables_grid(self):
-        self.tables_grid.controls.clear()
-        for table_data in self.tables_data:
-            is_occupied = table_data["status"] == "occupied"
-            client_name = table_data.get("client_name", "")
-            people_count = table_data.get("people", 0)
-            
-            # Colores según el estado
-            if is_occupied:
-                bgcolor = ft.Colors.RED_300
-                icon_color = ft.Colors.RED_900
-                status_text = "Ocupada"
+            mesas_list.controls.clear()
+            if not lista_de_mesas:
+                mesas_list.controls.append(ft.Text("No hay mesas disponibles.", size=16, text_align=ft.TextAlign.CENTER))
             else:
-                bgcolor = ft.Colors.GREEN_300
-                icon_color = ft.Colors.GREEN_900
-                status_text = "Libre"
-            
-            # Información a mostrar
-            info_text = f"Cliente: {client_name}" if client_name else "Sin cliente"
-            people_text = f"Personas: {people_count}" if people_count > 0 else f"Cap: {table_data['capacity']}"
-            
-            card = ft.Container(
-                data=table_data,
-                width=140,
-                height=140,
-                bgcolor=bgcolor,
-                border_radius=10,
-                ink=True,
-                on_click=self.table_clicked,
-                padding=10,
-                content=ft.Column(
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Row([
-                            ft.Icon(ft.Icons.TABLE_RESTAURANT, color=icon_color),
-                            ft.Text(f"Mesa {table_data['id']}", weight=ft.FontWeight.BOLD),
-                        ], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.Text(people_text, size=12),
-                        ft.Text(info_text, size=10, text_align=ft.TextAlign.CENTER),
-                        ft.Text(status_text, weight=ft.FontWeight.W_500, size=12),
-                    ]
+                for mesa in lista_de_mesas:
+                    
+                    """ print("─" * 40)
+                    print(f"ANALIZANDO MESA: {mesa}")
+                    print(f"VALOR DEL CAMPO 'mesero_id': {mesa.get('mesero_id')}")
+                     """
+                    mesa_id = mesa.get('id', 'N/A')
+                    mesa_status = mesa.get('status', 'Desconocido')
+                    mesero_id = mesa.get('mesero_id', None)
+                    doc_id = mesa.get('doc_id', '')
+                    meser = mesa.get('mesero_id', '')   
+                    # Encontrar el nombre del mesero
+                    #mesero_nombre = "Sin asignar"
+                    mesero_nombre = meser
+
+
+                    """ if mesero_id:
+                        mesero = next((m for m in lista_de_meseros if m.get('id') == mesero_id), None)
+                        if mesero:
+                            mesero_nombre = mesero.get('name', 'Desconocido')
+                    """ 
+                    # Determinar colores según el estado
+                    if mesa_status.lower() == "libre":
+                        color_fondo = ft.Colors.GREEN_100
+                        color_texto = ft.Colors.GREEN_800
+                    elif mesa_status.lower() == "ocupada":
+                        color_fondo = ft.Colors.RED_100
+                        color_texto = ft.Colors.RED_800
+                    elif mesa_status.lower() == "reservada":
+                        color_fondo = ft.Colors.YELLOW_100
+                        color_texto = ft.Colors.YELLOW_800
+                    else:
+                        color_fondo = ft.Colors.GREY_100
+                        color_texto = ft.Colors.GREY_800
+                    
+                    mesa_card = ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Text(f"Mesa {mesa_id}", size=18, weight=ft.FontWeight.BOLD),
+                                ft.Text(f" - {mesa_status}", size=16, color=color_texto)
+                            ]),
+                            ft.Row([
+                                ft.Icon(ft.Icons.PERSON, size=16),
+                                ft.Text(f"Mesero: {mesero_nombre}", size=14, color=ft.Colors.GREY_700)
+                            ]),
+                            ft.Row([
+                                ft.ElevatedButton(
+                                    text="Ocupar" if mesa_status.lower() == "libre" else "Liberar",
+                                    on_click=lambda e, m_id=mesa_id, m_status=mesa_status: toggle_mesa_status(m_id, m_status),
+                                    color=ft.Colors.WHITE,
+                                    bgcolor=ft.Colors.BLUE_400 if mesa_status.lower() == "libre" else ft.Colors.ORANGE_400
+                                ),
+                                ft.ElevatedButton(
+                                    text="Editar",
+                                    icon=ft.Icons.EDIT,
+                                    on_click=lambda e, m_id=mesa_id, d_id=doc_id: abrir_dialog_editar(m_id, d_id),
+                                    color=ft.Colors.WHITE,
+                                    bgcolor=ft.Colors.PURPLE_400
+                                ),
+                                ft.ElevatedButton(
+                                    text="Asignar Mesero",
+                                    icon=ft.Icons.PERSON_ADD,
+                                    on_click=lambda e, m_id=mesa_id, d_id=doc_id: abrir_dialog_asignar_mesero(m_id, d_id),
+                                    color=ft.Colors.WHITE,
+                                    bgcolor=ft.Colors.CYAN_400
+                                ),
+                                ft.ElevatedButton(
+                                    text="Eliminar",
+                                    icon=ft.Icons.DELETE,
+                                    on_click=lambda e, d_id=doc_id, m_id=mesa_id: confirmar_eliminar(d_id, m_id),
+                                    color=ft.Colors.WHITE,
+                                    bgcolor=ft.Colors.RED_400
+                                )
+                            ], alignment=ft.MainAxisAlignment.END, wrap=True)
+                        ]),
+                        padding=10,
+                        bgcolor=color_fondo,
+                        border_radius=10,
+                        margin=5,
+                        border=ft.border.all(1, color_texto)
+                    )
+                    mesas_list.controls.append(mesa_card)
+            page.update()
+        except Exception as e:
+            mesas_list.controls.append(
+                ft.Text(f"Error al cargar mesas: {e}", color=ft.Colors.RED, size=16, text_align=ft.TextAlign.CENTER)
+            )
+            page.update()
+
+    def toggle_mesa_status(mesa_id, current_status):
+        """Cambia el estado de la mesa entre 'Libre' y 'Ocupada'."""
+        new_status = "Ocupada" if current_status.lower() == "libre" else "Libre"
+        try:
+            mesa = db.get_mesa_by_id(mesa_id)
+            if mesa:
+                doc_id = mesa.get('doc_id')
+                success = db.update_mesa(doc_id, {"status": new_status})
+                if success:
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {mesa_id} actualizada a {new_status}"), open=True)
+                    cargar_mesas()
+                else:
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Error al actualizar mesa {mesa_id}"), open=True)
+            page.update()
+        except Exception as e:
+            page.snack_bar = ft.SnackBar(ft.Text(f"Error al actualizar mesa: {e}"), open=True)
+            page.update()
+
+    def abrir_dialog_editar(mesa_id, doc_id):
+        """Abre un diálogo para editar la mesa."""
+        # Obtener datos actuales de la mesa
+        mesa_actual = db.get_mesa_by_id(mesa_id)
+        if not mesa_actual:
+            page.snack_bar = ft.SnackBar(ft.Text("No se pudo encontrar la mesa"), open=True)
+            page.update()
+            return
+
+        # Campos del formulario
+        id_field = ft.TextField(
+            label="ID de Mesa",
+            value=mesa_actual.get('id', ''),
+            width=300
+        )
+        
+        status_dropdown = ft.Dropdown(
+            label="Estado",
+            value=mesa_actual.get('status', 'Libre'),
+            options=[
+                ft.dropdown.Option("Libre"),
+                ft.dropdown.Option("Ocupada"),
+                ft.dropdown.Option("Reservada"),
+                ft.dropdown.Option("Fuera de servicio")
+            ],
+            width=300
+        )
+
+        def guardar_cambios(e):
+            try:
+                # Verificar si el nuevo ID ya existe (si se cambió)
+                nuevo_id = id_field.value.strip()
+                if nuevo_id != mesa_actual.get('id'):
+                    mesas_existentes = db.get_all_mesas()
+                    if any(m.get('id') == nuevo_id for m in mesas_existentes):
+                        page.snack_bar = ft.SnackBar(ft.Text(f"El ID {nuevo_id} ya existe"), open=True)
+                        page.update()
+                        return
+
+                # Actualizar mesa
+                datos_actualizados = {
+                    'id': nuevo_id,
+                    'status': status_dropdown.value
+                }
+                
+                success = db.update_mesa(doc_id, datos_actualizados)
+                if success:
+                    page.snack_bar = ft.SnackBar(ft.Text("Mesa actualizada exitosamente"), open=True)
+                    cargar_mesas()
+                    dialog_editar.open = False
+                else:
+                    page.snack_bar = ft.SnackBar(ft.Text("Error al actualizar la mesa"), open=True)
+                
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
+                page.update()
+
+        def cancelar_edicion(e):
+            dialog_editar.open = False
+            page.update()
+
+        dialog_editar = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(f"Editar Mesa {mesa_id}"),
+            content=ft.Column([
+                id_field,
+                status_dropdown
+            ], tight=True),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancelar_edicion),
+                ft.TextButton("Guardar", on_click=guardar_cambios)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+
+        page.overlay.append(dialog_editar)
+        dialog_editar.open = True
+        page.update()
+
+    def abrir_dialog_asignar_mesero(mesa_id, doc_id):
+        """Abre un diálogo para asignar un mesero a la mesa."""
+        # Obtener datos actuales de la mesa
+        mesa_actual = db.get_mesa_by_id(mesa_id)
+        if not mesa_actual:
+            page.snack_bar = ft.SnackBar(ft.Text("No se pudo encontrar la mesa"), open=True)
+            page.update()
+            return
+
+        # Obtener lista de meseros
+        meseros = db.get_all_meseros()
+        if not meseros:
+            page.snack_bar = ft.SnackBar(ft.Text("No hay meseros disponibles. Agregue meseros primero."), open=True)
+            page.update()
+            return
+
+        # Crear opciones para el dropdown
+        mesero_options = [ft.dropdown.Option(key="", text="Sin asignar")]
+        for mesero in meseros:
+            mesero_options.append(
+                ft.dropdown.Option(
+                    key=mesero.get('id', ''),
+                    text=f"{mesero.get('name', 'Sin nombre')} - {mesero.get('id', '')}"
                 )
             )
-            self.tables_grid.controls.append(card)
-        self.update()
 
-    def update_stats(self):
-        """Actualiza las estadísticas mostradas en el panel de acciones"""
-        total_mesas = len(self.tables_data)
-        mesas_ocupadas = len([t for t in self.tables_data if t.get('status') == 'occupied'])
-        
-        # Actualizar los controles de estadísticas
-        self.stats_total.value = f"Total de mesas: {total_mesas}"
-        self.stats_occupied.value = f"Mesas ocupadas: {mesas_ocupadas}"
+        mesero_dropdown = ft.Dropdown(
+            label="Seleccionar Mesero",
+            value=str(mesa_actual.get('mesero_id', '')) if mesa_actual.get('mesero_id') is not None else "",
+            options=mesero_options,
+            width=400
+        )
 
-    def table_clicked(self, e: ft.ContainerTapEvent):
-        self.selected_table_data = e.control.data
-        if self.selected_table_container:
-            self.selected_table_container.border = None
-        self.selected_table_container = e.control
-        self.selected_table_container.border = ft.border.all(3, ft.Colors.BLUE_500)
-        self.order_panel.disabled = False
-        self.update_order_panel()
-        self.update()
+        def asignar_mesero(e):
+            try:
+                mesero_id = mesero_dropdown.value if mesero_dropdown.value else None
+                
+                # Actualizar mesa con el mesero asignado
+                datos_actualizados = {
+                    'mesero_id': mesero_id
+                }
+                
+                success = db.update_mesa(doc_id, datos_actualizados)
+                if success:
+                    mesero_nombre = "Sin asignar"
+                    if mesero_id:
+                        mesero = next((m for m in meseros if m.get('id') == mesero_id), None)
+                        if mesero:
+                            mesero_nombre = mesero.get('name', 'Desconocido')
+                    
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {mesa_id} asignada a {mesero_nombre}"), open=True)
+                    cargar_mesas()
+                    dialog_asignar.open = False
+                else:
+                    page.snack_bar = ft.SnackBar(ft.Text("Error al asignar mesero"), open=True)
+                
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
+                page.update()
 
-    def update_order_panel(self):
-        if not self.selected_table_data:
-            return
-            
-        table_id = self.selected_table_data['id']
-        is_occupied = self.selected_table_data['status'] == 'occupied'
-        client_name = self.selected_table_data.get('client_name', '')
-        people_count = self.selected_table_data.get('people', 0)
-        capacity = self.selected_table_data.get('capacity', 4)
+        def cancelar_asignacion(e):
+            dialog_asignar.open = False
+            page.update()
+
+        dialog_asignar = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(f"Asignar Mesero a Mesa {mesa_id}"),
+            content=ft.Column([
+                ft.Text("Seleccione el mesero que atenderá esta mesa:"),
+                mesero_dropdown
+            ], tight=True),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancelar_asignacion),
+                ft.TextButton("Asignar", on_click=asignar_mesero)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+
+        page.overlay.append(dialog_asignar)
+        dialog_asignar.open = True
+        page.update()
+
+    def confirmar_eliminar(doc_id, mesa_id):
+        """Confirma la eliminación de una mesa."""
+        def eliminar_mesa(e):
+            try:
+                db.delete_mesa(doc_id)
+                page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {mesa_id} eliminada exitosamente"), open=True)
+                cargar_mesas()
+                dialog_confirmar.open = False
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error al eliminar mesa: {ex}"), open=True)
+                page.update()
+
+        def cancelar_eliminacion(e):
+            dialog_confirmar.open = False
+            page.update()
+
+        dialog_confirmar = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Confirmar eliminación"),
+            content=ft.Text(f"¿Está seguro de que desea eliminar la Mesa {mesa_id}?"),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancelar_eliminacion),
+                ft.TextButton("Eliminar", on_click=eliminar_mesa, style=ft.ButtonStyle(color=ft.Colors.RED))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+
+        page.overlay.append(dialog_confirmar)
+        dialog_confirmar.open = True
+        page.update()
+
+    def abrir_dialog_nueva_mesa():
+        """Abre un diálogo para agregar una nueva mesa."""
+        # Obtener lista de meseros
+        meseros = db.get_all_meseros()
         
-        # Actualizar título
-        self.order_title.value = f"Mesa {table_id} - Capacidad: {capacity} personas"
-        
-        # Actualizar campos de cliente
-        self.client_name_input.value = client_name
-        self.group_size_dropdown.value = str(people_count) if people_count > 0 else ""
-        
-        # Habilitar/deshabilitar botones según el estado
-        self.assign_client_button.disabled = is_occupied
-        self.free_table_button.disabled = not is_occupied
-        
-        # Actualizar la lista de pedidos
-        self.order_list.controls.clear()
-        total = 0
-        for item in self.selected_table_data.get("order", []):
-            item_row = ft.Row([
-                ft.Text(f"- {item['name']}", expand=True),
-                ft.Text(f"${item['price']:.2f}", weight=ft.FontWeight.BOLD),
-                ft.IconButton(
-                    ft.Icons.DELETE,
-                    icon_size=16,
-                    on_click=lambda e, item_to_remove=item: self.remove_item_from_order(item_to_remove),
-                    tooltip="Eliminar item"
+        # Crear opciones para el dropdown de meseros
+        mesero_options = [ft.dropdown.Option(key="", text="Sin asignar")]
+        for mesero in meseros:
+            mesero_options.append(
+                ft.dropdown.Option(
+                    key=mesero.get('id', ''),
+                    text=f"{mesero.get('name', 'Sin nombre')} - {mesero.get('id', '')}"
                 )
-            ])
-            self.order_list.controls.append(item_row)
-            total += item['price']
-        
-        self.order_total.value = f"Total: ${total:.2f}"
-        
-        # Habilitar/deshabilitar sección de pedidos
-        self.category_dropdown.disabled = not is_occupied
-        self.item_dropdown.disabled = not is_occupied
-        
-        self.update()
+            )
 
-    def remove_item_from_order(self, item_to_remove):
-        """Elimina un item del pedido"""
-        if not self.selected_table_data:
-            return
+        # Campos del formulario
+        id_field = ft.TextField(
+            label="ID de Mesa",
+            hint_text="Ej: 5, A1, etc.",
+            width=300
+        )
         
-        order = self.selected_table_data.get("order", [])
-        if item_to_remove in order:
-            order.remove(item_to_remove)
-            db.update_table(self.selected_table_data)
-            self.update_order_panel()
+        status_dropdown = ft.Dropdown(
+            label="Estado",
+            value="Libre",
+            options=[
+                ft.dropdown.Option("Libre"),
+                ft.dropdown.Option("Ocupada"),
+                ft.dropdown.Option("Reservada"),
+                ft.dropdown.Option("Fuera de servicio")
+            ],
+            width=300
+        )
 
-    def assign_client(self, e):
-        """Asigna un cliente a la mesa seleccionada"""
-        if not self.selected_table_data or not self.client_name_input.value or not self.group_size_dropdown.value:
-            return
-        
-        # Verificar que el grupo no exceda la capacidad
-        group_size = int(self.group_size_dropdown.value)
-        capacity = self.selected_table_data.get('capacity', 4)
-        
-        if group_size > capacity:
-            # Aquí podrías mostrar un mensaje de error si tuvieras un sistema de diálogos
-            return
-        
-        # Actualizar datos de la mesa
-        self.selected_table_data['status'] = 'occupied'
-        self.selected_table_data['client_name'] = self.client_name_input.value
-        self.selected_table_data['people'] = group_size
-        
-        # Guardar en la base de datos
-        db.update_table(self.selected_table_data)
-        
-        # Actualizar vistas
-        self.update_order_panel()
-        self.update_tables_grid()
-        self.update_stats()
+        mesero_dropdown = ft.Dropdown(
+            label="Mesero Asignado",
+            value="",
+            options=mesero_options,
+            width=400
+        )
 
-    def free_table(self, e):
-        """Libera la mesa seleccionada"""
-        if not self.selected_table_data:
-            return
-        
-        # Limpiar datos de la mesa
-        self.selected_table_data['status'] = 'free'
-        self.selected_table_data['client_name'] = ''
-        self.selected_table_data['people'] = 0
-        self.selected_table_data['order'] = []
-        
-        # Guardar en la base de datos
-        db.update_table(self.selected_table_data)
-        
-        # Actualizar vistas
-        self.update_order_panel()
-        self.update_tables_grid()
-        self.update_stats()
+        def agregar_mesa(e):
+            try:
+                nuevo_id = id_field.value.strip()
+                if not nuevo_id:
+                    page.snack_bar = ft.SnackBar(ft.Text("El ID de la mesa es requerido"), open=True)
+                    page.update()
+                    return
 
-    def update_item_dropdown(self, e):
-        category = self.category_dropdown.value
-        self.item_dropdown.options = [
-            ft.dropdown.Option(item["name"]) for item in self.menu_data.get(category, [])
-        ]
-        self.item_dropdown.value = None
-        self.update()
+                # Verificar si el ID ya existe
+                mesas_existentes = db.get_all_mesas()
+                if any(m.get('id') == nuevo_id for m in mesas_existentes):
+                    page.snack_bar = ft.SnackBar(ft.Text(f"El ID {nuevo_id} ya existe"), open=True)
+                    page.update()
+                    return
 
-    def add_item_to_order(self, e):
-        if not self.selected_table_data or not self.item_dropdown.value or self.selected_table_data['status'] != 'occupied':
-            return
+                # Agregar nueva mesa
+                datos_mesa = {
+                    'id': nuevo_id,
+                    'status': status_dropdown.value,
+                    'mesero_id': mesero_dropdown.value or None
+                }
+                
+                doc_id = db.add_mesa(datos_mesa)
+                if doc_id:
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {nuevo_id} agregada exitosamente"), open=True)
+                    cargar_mesas()
+                    dialog_nueva.open = False
+                else:
+                    page.snack_bar = ft.SnackBar(ft.Text("Error al agregar la mesa"), open=True)
+                
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
+                page.update()
+
+        def cancelar_agregar(e):
+            dialog_nueva.open = False
+            page.update()
+
+        dialog_nueva = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Agregar Nueva Mesa"),
+            content=ft.Column([
+                id_field,
+                status_dropdown,
+                mesero_dropdown
+            ], tight=True),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancelar_agregar),
+                ft.TextButton("Agregar", on_click=agregar_mesa)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+
+        page.overlay.append(dialog_nueva)
+        dialog_nueva.open = True
+        page.update()
+
+    def abrir_dialog_gestionar_meseros():
+        """Abre un diálogo para gestionar meseros."""
+        meseros_list = ft.Column(height=300, scroll=ft.ScrollMode.AUTO)
         
-        category = self.category_dropdown.value
-        item_name = self.item_dropdown.value
-        item_info = next((item for item in self.menu_data[category] if item["name"] == item_name), None)
-        
-        if item_info:
-            self.selected_table_data.setdefault("order", []).append(item_info)
-            db.update_table(self.selected_table_data)
-            self.update_order_panel()
+        def cargar_meseros():
+            meseros = db.get_all_meseros()
+            meseros_list.controls.clear()
             
-            # Limpiar selección
-            self.item_dropdown.value = None
-            self.update()
-
-    def add_table(self, e):
-        new_id = max(t["id"] for t in self.tables_data) + 1 if self.tables_data else 1
-        new_table_data = {"id": new_id, "capacity": 4, "status": "free", "order": [], "people": 0, "client_name": ""}
-        db.update_table(new_table_data)
-        self.tables_data.append(new_table_data)
-        self.update_tables_grid()
-        self.update_stats()
-
-    def remove_last_table(self, e):
-        if self.tables_data:
-            last_table = self.tables_data.pop()
-            db.delete_table(last_table["id"])
-            self.update_tables_grid()
-            self.update_stats()
+            if not meseros:
+                meseros_list.controls.append(ft.Text("No hay meseros registrados"))
+            else:
+                for mesero in meseros:
+                    mesero_card = ft.Container(
+                        content=ft.Row([
+                            ft.Column([
+                                ft.Text(f"ID: {mesero.get('id', 'N/A')}", weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Nombre: {mesero.get('name', 'N/A')}")
+                            ], expand=True),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE,
+                                on_click=lambda e, doc_id=mesero.get('doc_id'): eliminar_mesero(doc_id)
+                            )
+                        ]),
+                        padding=10,
+                        bgcolor=ft.Colors.SURFACE_VARIANT,
+                        border_radius=5,
+                        margin=2
+                    )
+                    meseros_list.controls.append(mesero_card)
             
-            # Si la mesa eliminada era la seleccionada, limpiar selección
-            if self.selected_table_data and self.selected_table_data["id"] == last_table["id"]:
-                self.selected_table_data = None
-                self.selected_table_container = None
-                self.order_panel.disabled = True
-                self.order_title.value = "Seleccione una mesa para gestionar"
-                self.client_name_input.value = ""
-                self.group_size_dropdown.value = ""
-                self.order_list.controls.clear()
-                self.order_total.value = "Total: $0.00"
-                self.update()
+            page.update()
+
+        def eliminar_mesero(doc_id):
+            try:
+                db.delete_mesero(doc_id)
+                page.snack_bar = ft.SnackBar(ft.Text("Mesero eliminado exitosamente"), open=True)
+                cargar_meseros()
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error al eliminar mesero: {ex}"), open=True)
+                page.update()
+
+        # Campos para agregar nuevo mesero
+        id_mesero_field = ft.TextField(label="ID del Mesero", width=200)
+        nombre_mesero_field = ft.TextField(label="Nombre del Mesero", width=200)
+
+        def agregar_mesero(e):
+            try:
+                id_mesero = id_mesero_field.value.strip()
+                nombre_mesero = nombre_mesero_field.value.strip()
+                
+                if not id_mesero or not nombre_mesero:
+                    page.snack_bar = ft.SnackBar(ft.Text("ID y nombre son requeridos"), open=True)
+                    page.update()
+                    return
+
+                # Verificar si el ID ya existe
+                meseros_existentes = db.get_all_meseros()
+                if any(m.get('id') == id_mesero for m in meseros_existentes):
+                    page.snack_bar = ft.SnackBar(ft.Text(f"El ID {id_mesero} ya existe"), open=True)
+                    page.update()
+                    return
+
+                # Agregar nuevo mesero
+                datos_mesero = {
+                    'id': id_mesero,
+                    'nombre': nombre_mesero
+                }
+                
+                doc_id = db.add_mesero(datos_mesero)
+                if doc_id:
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Mesero {nombre_mesero} agregado exitosamente"), open=True)
+                    id_mesero_field.value = ""
+                    nombre_mesero_field.value = ""
+                    cargar_meseros()
+                else:
+                    page.snack_bar = ft.SnackBar(ft.Text("Error al agregar mesero"), open=True)
+                
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
+                page.update()
+
+        def cerrar_dialog(e):
+            dialog_meseros.open = False
+            page.update()
+
+        dialog_meseros = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Gestionar Meseros"),
+            content=ft.Column([
+                ft.Text("Meseros Registrados:", weight=ft.FontWeight.BOLD),
+                meseros_list,
+                ft.Divider(),
+                ft.Text("Agregar Nuevo Mesero:", weight=ft.FontWeight.BOLD),
+                ft.Row([id_mesero_field, nombre_mesero_field]),
+                ft.ElevatedButton("Agregar Mesero", on_click=agregar_mesero)
+            ], tight=True, width=500),
+            actions=[
+                ft.TextButton("Cerrar", on_click=cerrar_dialog)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+
+        page.overlay.append(dialog_meseros)
+        dialog_meseros.open = True
+        cargar_meseros()
+        page.update()
+
+    # Cargar mesas al iniciar
+    cargar_mesas()
+
+    # Botones de acción
+    botones_accion = ft.Row([
+        ft.ElevatedButton(
+            text="Agregar Mesa",
+            icon=ft.Icons.ADD,
+            on_click=lambda e: abrir_dialog_nueva_mesa(),
+            bgcolor=ft.Colors.GREEN_400,
+            color=ft.Colors.WHITE
+        ),
+        ft.ElevatedButton(
+            text="Gestionar Meseros",
+            icon=ft.Icons.PEOPLE,
+            on_click=lambda e: abrir_dialog_gestionar_meseros(),
+            bgcolor=ft.Colors.INDIGO_400,
+            color=ft.Colors.WHITE
+        ),
+        ft.ElevatedButton(
+            text="Recargar",
+            icon=ft.Icons.REFRESH,
+            on_click=lambda e: cargar_mesas(),
+            bgcolor=ft.Colors.BLUE_400,
+            color=ft.Colors.WHITE
+        )
+    ], alignment=ft.MainAxisAlignment.CENTER, wrap=True)
+
+    return ft.Container(
+        content=ft.Column([
+            ft.Text("Vista Mesera", size=24, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+            ft.Divider(height=2, color=ft.Colors.GREY_300),
+            botones_accion,
+            ft.Divider(height=1, color=ft.Colors.GREY_200),
+            mesas_list
+        ], spacing=10, scroll=ft.ScrollMode.AUTO),
+        padding=10,
+        expand=True
+    )

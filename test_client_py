@@ -1,0 +1,98 @@
+import firebase_admin
+from firebase_admin import credentials, firestore
+import os
+from datetime import datetime
+
+# --- Funciones para poblar cada colección ---
+
+def populate_meseros(db):
+    print("\n Escribiendo en 'meseros'...")
+    data_list = [
+        {"name": "Ana García", "telefono": "3101234567"},
+        {"name": "Carlos Ruíz", "telefono": "3009876543"}
+    ]
+    for data in data_list:
+        db.collection('meseros').add(data)
+    print("✅ Colección 'meseros' poblada.")
+
+def populate_mesas(db):
+    print("\n Escribiendo en 'mesas'...")
+    data_list = [
+        {"numeromesa": 1, "meseroasig": "", "comensales": 0, "listaitems": []},
+        {"numeromesa": 2, "meseroasig": "", "comensales": 0, "listaitems": []},
+        {"numeromesa": 3, "meseroasig": "", "comensales": 0, "listaitems": []}
+    ]
+    for data in data_list:
+        doc_id = str(data['numeromesa'])
+        db.collection('mesas').document(doc_id).set(data)
+    print("✅ Colección 'mesas' poblada.")
+
+def populate_items(db):
+    print("\n Escribiendo en 'items'...")
+    data_list = [
+        {"nombre": "Hamburguesa", "precio": 15000, "categoria": "Comidas", "descripcion": "Carne, queso y vegetales"},
+        {"nombre": "Pizza", "precio": 22000, "categoria": "Comidas", "descripcion": "Queso y pepperoni"},
+        {"nombre": "Jugo Natural", "precio": 5000, "categoria": "Bebidas", "descripcion": "Lulo o Mora"}
+    ]
+    for data in data_list:
+        db.collection('items').add(data)
+    print("✅ Colección 'items' poblada.")
+
+def populate_clientes(db):
+    print("\n Escribiendo en 'clientes'...")
+    data_list = [
+        {"nombre": "Juan Pérez", "telefono": "3115554433", "correo": "juan.p@example.com", "documento": "1030000001"},
+        {"nombre": "María López", "telefono": "3107771122", "correo": "maria.l@example.com", "documento": "1030000002"}
+    ]
+    for data in data_list:
+        db.collection('clientes').add(data)
+    print("✅ Colección 'clientes' poblada.")
+
+def populate_ventas(db):
+    print("\n Escribiendo en 'ventas'...")
+    data_list = [{
+        "numeroventa": 1001,
+        "cliente": {"nombre": "Juan Pérez", "documento": "1030000001"},
+        "listaitems": [{"nombre": "Hamburguesa", "precio": 15000, "cantidad": 2}],
+        "fecha": datetime.now(),
+        "valor_venta": 30000
+    }]
+    for data in data_list:
+        db.collection('ventas').add(data)
+    print("✅ Colección 'ventas' poblada.")
+
+# --- Script Principal ---
+
+def main():
+    print("--- Iniciando script de población configurable ---")
+    cred_path = 'serviceAccountKey.json'
+
+    if not os.path.exists(cred_path):
+        print(f"❌ ERROR: No se encontró el archivo '{cred_path}'.")
+        return
+
+    try:
+        cred = credentials.Certificate(cred_path)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        
+        db = firestore.client()
+        print("✅ Conexión con Firestore exitosa.")
+
+        # -ACTIVAR DESACTIVAR-------------------
+        
+        populate_meseros(db)
+        populate_mesas(db)
+        populate_items(db)
+        populate_clientes(db)
+        populate_ventas(db)
+
+        print("\n🚀 ¡Proceso de población finalizado!")
+
+    except Exception as e:
+        print(f"\n❌ Ocurrió un error: {e}")
+
+
+# Ejecutar el script principal
+if __name__ == "__main__":
+    main()
