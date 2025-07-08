@@ -1,6 +1,6 @@
 # Archivo: populate_data.py
 
-import database as db
+import database_pos as db
 from datetime import datetime
 
 def populate_firestore_data():

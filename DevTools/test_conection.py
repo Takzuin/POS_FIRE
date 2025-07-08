@@ -5,7 +5,7 @@ import os
 print("Iniciando prueba de conexión a Firestore...")
 
 # 1. Define la ruta a tu clave de servicio
-cred_path = 'serviceAccountKey.json'
+cred_path = '../serviceAccountKey.json'
 
 # 2. Verifica que el archivo de la clave exista
 if not os.path.exists(cred_path):
