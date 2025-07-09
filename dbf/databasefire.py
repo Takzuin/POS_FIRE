@@ -1,6 +1,7 @@
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 import os
+from firebase_admin import auth
 
 # --- INICIALIZACIÓN DE FIRESTORE ---
 db_client = None
@@ -258,3 +259,24 @@ def get_all_facturas():
         print(f"Error al obtener todas las facturas: {e}")
         return []
 
+def verify_user_credentials(email, password):
+    try:
+        user = auth.get_user_by_email(email)
+        return user.uid
+    except Exception as e:
+        print(f"Error verifying user: {e}")
+        return None
+
+def get_user_info(uid):
+    """Obtiene información del usuario por UID"""
+    try:
+        user = auth.get_user(uid)
+        return {
+            'uid': user.uid,
+            'email': user.email,
+            'display_name': user.display_name,
+            'email_verified': user.email_verified
+        }
+    except Exception as e:
+        print(f"Error getting user info: {e}")
+        return None
