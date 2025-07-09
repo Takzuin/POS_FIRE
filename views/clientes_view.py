@@ -1,5 +1,5 @@
 import flet as ft
-import databasefire as db
+from dbf import databasefire as db
 
 # Debug: Print Flet module path
 print(f"Flet module path: {ft.__file__}")

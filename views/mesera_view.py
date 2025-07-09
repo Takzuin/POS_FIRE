@@ -1,5 +1,6 @@
 import flet as ft
-import databasefire as db
+from dbf import databasefire as db
+
 
 def MeseraView(page):
     mesas_list = ft.Column()
@@ -9,13 +10,14 @@ def MeseraView(page):
         try:
             lista_de_mesas = db.get_all_mesas()
             lista_de_meseros = db.get_all_meseros()
-            
+
             mesas_list.controls.clear()
             if not lista_de_mesas:
-                mesas_list.controls.append(ft.Text("No hay mesas disponibles.", size=16, text_align=ft.TextAlign.CENTER))
+                mesas_list.controls.append(
+                    ft.Text("No hay mesas disponibles.", size=16, text_align=ft.TextAlign.CENTER))
             else:
                 for mesa in lista_de_mesas:
-                    
+
                     """ print("─" * 40)
                     print(f"ANALIZANDO MESA: {mesa}")
                     print(f"VALOR DEL CAMPO 'mesero_id': {mesa.get('mesero_id')}")
@@ -24,76 +26,138 @@ def MeseraView(page):
                     mesa_status = mesa.get('status', 'Desconocido')
                     mesero_id = mesa.get('mesero_id', None)
                     doc_id = mesa.get('doc_id', '')
-                    meser = mesa.get('mesero_id', '')   
+                    meser = mesa.get('mesero_id', '')
                     # Encontrar el nombre del mesero
-                    #mesero_nombre = "Sin asignar"
+                    # mesero_nombre = "Sin asignar"
                     mesero_nombre = meser
-
 
                     """ if mesero_id:
                         mesero = next((m for m in lista_de_meseros if m.get('id') == mesero_id), None)
                         if mesero:
                             mesero_nombre = mesero.get('name', 'Desconocido')
-                    """ 
-                    # Determinar colores según el estado
+                    """
+                    # Determinar colores según el estado - COLORES MEJORADOS CON TONOS MÁS OSCUROS
                     if mesa_status.lower() == "libre":
-                        color_fondo = ft.Colors.GREEN_100
-                        color_texto = ft.Colors.GREEN_800
+                        color_fondo = ft.Colors.GREEN_300
+                        color_texto = ft.Colors.GREEN_900
+                        color_borde = ft.Colors.GREEN_700
                     elif mesa_status.lower() == "ocupada":
-                        color_fondo = ft.Colors.RED_100
-                        color_texto = ft.Colors.RED_800
+                        color_fondo = ft.Colors.RED_300
+                        color_texto = ft.Colors.RED_900
+                        color_borde = ft.Colors.RED_700
                     elif mesa_status.lower() == "reservada":
-                        color_fondo = ft.Colors.YELLOW_100
-                        color_texto = ft.Colors.YELLOW_800
+                        color_fondo = ft.Colors.ORANGE_300
+                        color_texto = ft.Colors.ORANGE_900
+                        color_borde = ft.Colors.ORANGE_700
+                    elif mesa_status.lower() == "fuera de servicio":
+                        color_fondo = ft.Colors.BLUE_GREY_300
+                        color_texto = ft.Colors.BLUE_GREY_900
+                        color_borde = ft.Colors.BLUE_GREY_700
                     else:
-                        color_fondo = ft.Colors.GREY_100
-                        color_texto = ft.Colors.GREY_800
-                    
+                        color_fondo = ft.Colors.GREY_300
+                        color_texto = ft.Colors.GREY_900
+                        color_borde = ft.Colors.GREY_700
+
+                    # Icono según el estado
+                    if mesa_status.lower() == "libre":
+                        status_icon = ft.Icons.CHECK_CIRCLE
+                    elif mesa_status.lower() == "ocupada":
+                        status_icon = ft.Icons.PEOPLE
+                    elif mesa_status.lower() == "reservada":
+                        status_icon = ft.Icons.SCHEDULE
+                    elif mesa_status.lower() == "fuera de servicio":
+                        status_icon = ft.Icons.BLOCK
+                    else:
+                        status_icon = ft.Icons.HELP_OUTLINE
+
                     mesa_card = ft.Container(
                         content=ft.Column([
-                            ft.Row([
-                                ft.Text(f"Mesa {mesa_id}", size=18, weight=ft.FontWeight.BOLD),
-                                ft.Text(f" - {mesa_status}", size=16, color=color_texto)
-                            ]),
-                            ft.Row([
-                                ft.Icon(ft.Icons.PERSON, size=16),
-                                ft.Text(f"Mesero: {mesero_nombre}", size=14, color=ft.Colors.GREY_700)
-                            ]),
+                            # Header de la mesa con estado más visible
+                            ft.Container(
+                                content=ft.Row([
+                                    ft.Row([
+                                        ft.Icon(ft.Icons.TABLE_RESTAURANT, size=20, color=color_texto),
+                                        ft.Text(f"Mesa {mesa_id}", size=20, weight=ft.FontWeight.BOLD,
+                                                color=color_texto),
+                                    ], spacing=8),
+                                    ft.Row([
+                                        ft.Icon(status_icon, size=18, color=color_texto),
+                                        ft.Text(mesa_status.upper(), size=14, weight=ft.FontWeight.BOLD,
+                                                color=color_texto)
+                                    ], spacing=5)
+                                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                                padding=ft.padding.only(bottom=8)
+                            ),
+                            # Información del mesero
+                            ft.Container(
+                                content=ft.Row([
+                                    ft.Icon(ft.Icons.PERSON_OUTLINE, size=16, color=color_texto),
+                                    ft.Text(f"Mesero: {mesero_nombre}", size=14, color=color_texto,
+                                            weight=ft.FontWeight.W_500)
+                                ], spacing=5),
+                                padding=ft.padding.only(bottom=10)
+                            ),
+                            # Botones de acción
                             ft.Row([
                                 ft.ElevatedButton(
                                     text="Ocupar" if mesa_status.lower() == "libre" else "Liberar",
-                                    on_click=lambda e, m_id=mesa_id, m_status=mesa_status: toggle_mesa_status(m_id, m_status),
+                                    icon=ft.Icons.SWAP_HORIZ,
+                                    on_click=lambda e, m_id=mesa_id, m_status=mesa_status: toggle_mesa_status(m_id,
+                                                                                                              m_status),
                                     color=ft.Colors.WHITE,
-                                    bgcolor=ft.Colors.BLUE_400 if mesa_status.lower() == "libre" else ft.Colors.ORANGE_400
+                                    bgcolor=ft.Colors.BLUE_600 if mesa_status.lower() == "libre" else ft.Colors.ORANGE_600,
+                                    style=ft.ButtonStyle(
+                                        elevation=2,
+                                        shape=ft.RoundedRectangleBorder(radius=8)
+                                    )
                                 ),
                                 ft.ElevatedButton(
                                     text="Editar",
-                                    icon=ft.Icons.EDIT,
+                                    icon=ft.Icons.EDIT_OUTLINED,
                                     on_click=lambda e, m_id=mesa_id, d_id=doc_id: abrir_dialog_editar(m_id, d_id),
                                     color=ft.Colors.WHITE,
-                                    bgcolor=ft.Colors.PURPLE_400
+                                    bgcolor=ft.Colors.PURPLE_600,
+                                    style=ft.ButtonStyle(
+                                        elevation=2,
+                                        shape=ft.RoundedRectangleBorder(radius=8)
+                                    )
                                 ),
                                 ft.ElevatedButton(
-                                    text="Asignar Mesero",
-                                    icon=ft.Icons.PERSON_ADD,
-                                    on_click=lambda e, m_id=mesa_id, d_id=doc_id: abrir_dialog_asignar_mesero(m_id, d_id),
+                                    text="Mesero",
+                                    icon=ft.Icons.PERSON_ADD_OUTLINED,
+                                    on_click=lambda e, m_id=mesa_id, d_id=doc_id: abrir_dialog_asignar_mesero(m_id,
+                                                                                                              d_id),
                                     color=ft.Colors.WHITE,
-                                    bgcolor=ft.Colors.CYAN_400
+                                    bgcolor=ft.Colors.CYAN_600,
+                                    style=ft.ButtonStyle(
+                                        elevation=2,
+                                        shape=ft.RoundedRectangleBorder(radius=8)
+                                    )
                                 ),
                                 ft.ElevatedButton(
                                     text="Eliminar",
-                                    icon=ft.Icons.DELETE,
+                                    icon=ft.Icons.DELETE_OUTLINE,
                                     on_click=lambda e, d_id=doc_id, m_id=mesa_id: confirmar_eliminar(d_id, m_id),
                                     color=ft.Colors.WHITE,
-                                    bgcolor=ft.Colors.RED_400
+                                    bgcolor=ft.Colors.RED_600,
+                                    style=ft.ButtonStyle(
+                                        elevation=2,
+                                        shape=ft.RoundedRectangleBorder(radius=8)
+                                    )
                                 )
-                            ], alignment=ft.MainAxisAlignment.END, wrap=True)
-                        ]),
-                        padding=10,
+                            ], alignment=ft.MainAxisAlignment.END, wrap=True, spacing=8)
+                        ], spacing=5),
+                        padding=ft.padding.all(16),
                         bgcolor=color_fondo,
-                        border_radius=10,
-                        margin=5,
-                        border=ft.border.all(1, color_texto)
+                        border_radius=12,
+                        margin=ft.margin.only(bottom=10),
+                        border=ft.border.all(2, color_borde),
+                        shadow=ft.BoxShadow(
+                            spread_radius=1,
+                            blur_radius=4,
+                            color=ft.Colors.BLACK26,
+                            offset=ft.Offset(0, 2)
+                        )
                     )
                     mesas_list.controls.append(mesa_card)
             page.update()
@@ -101,6 +165,7 @@ def MeseraView(page):
             mesas_list.controls.append(
                 ft.Text(f"Error al cargar mesas: {e}", color=ft.Colors.RED, size=16, text_align=ft.TextAlign.CENTER)
             )
+
             page.update()
 
     def toggle_mesa_status(mesa_id, current_status):
@@ -136,7 +201,7 @@ def MeseraView(page):
             value=mesa_actual.get('id', ''),
             width=300
         )
-        
+
         status_dropdown = ft.Dropdown(
             label="Estado",
             value=mesa_actual.get('status', 'Libre'),
@@ -165,7 +230,7 @@ def MeseraView(page):
                     'id': nuevo_id,
                     'status': status_dropdown.value
                 }
-                
+
                 success = db.update_mesa(doc_id, datos_actualizados)
                 if success:
                     page.snack_bar = ft.SnackBar(ft.Text("Mesa actualizada exitosamente"), open=True)
@@ -173,7 +238,7 @@ def MeseraView(page):
                     dialog_editar.open = False
                 else:
                     page.snack_bar = ft.SnackBar(ft.Text("Error al actualizar la mesa"), open=True)
-                
+
                 page.update()
             except Exception as ex:
                 page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
@@ -223,7 +288,7 @@ def MeseraView(page):
             mesero_options.append(
                 ft.dropdown.Option(
                     key=mesero.get('id', ''),
-                    text=f"{mesero.get('name', 'Sin nombre')} - {mesero.get('id', '')}"
+                    text=f"{mesero.get('name', 'Sin nombre')}{mesero.get('id', '')}"
                 )
             )
 
@@ -237,12 +302,12 @@ def MeseraView(page):
         def asignar_mesero(e):
             try:
                 mesero_id = mesero_dropdown.value if mesero_dropdown.value else None
-                
+
                 # Actualizar mesa con el mesero asignado
                 datos_actualizados = {
                     'mesero_id': mesero_id
                 }
-                
+
                 success = db.update_mesa(doc_id, datos_actualizados)
                 if success:
                     mesero_nombre = "Sin asignar"
@@ -250,13 +315,13 @@ def MeseraView(page):
                         mesero = next((m for m in meseros if m.get('id') == mesero_id), None)
                         if mesero:
                             mesero_nombre = mesero.get('name', 'Desconocido')
-                    
+
                     page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {mesa_id} asignada a {mesero_nombre}"), open=True)
                     cargar_mesas()
                     dialog_asignar.open = False
                 else:
                     page.snack_bar = ft.SnackBar(ft.Text("Error al asignar mesero"), open=True)
-                
+
                 page.update()
             except Exception as ex:
                 page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
@@ -286,6 +351,7 @@ def MeseraView(page):
 
     def confirmar_eliminar(doc_id, mesa_id):
         """Confirma la eliminación de una mesa."""
+
         def eliminar_mesa(e):
             try:
                 db.delete_mesa(doc_id)
@@ -320,14 +386,14 @@ def MeseraView(page):
         """Abre un diálogo para agregar una nueva mesa."""
         # Obtener lista de meseros
         meseros = db.get_all_meseros()
-        
+
         # Crear opciones para el dropdown de meseros
         mesero_options = [ft.dropdown.Option(key="", text="Sin asignar")]
         for mesero in meseros:
             mesero_options.append(
                 ft.dropdown.Option(
                     key=mesero.get('id', ''),
-                    text=f"{mesero.get('name', 'Sin nombre')} - {mesero.get('id', '')}"
+                    text=f"{mesero.get('name', 'Sin nombre')}{mesero.get('id', '')}"
                 )
             )
 
@@ -337,7 +403,7 @@ def MeseraView(page):
             hint_text="Ej: 5, A1, etc.",
             width=300
         )
-        
+
         status_dropdown = ft.Dropdown(
             label="Estado",
             value="Libre",
@@ -378,7 +444,7 @@ def MeseraView(page):
                     'status': status_dropdown.value,
                     'mesero_id': mesero_dropdown.value or None
                 }
-                
+
                 doc_id = db.add_mesa(datos_mesa)
                 if doc_id:
                     page.snack_bar = ft.SnackBar(ft.Text(f"Mesa {nuevo_id} agregada exitosamente"), open=True)
@@ -386,7 +452,7 @@ def MeseraView(page):
                     dialog_nueva.open = False
                 else:
                     page.snack_bar = ft.SnackBar(ft.Text("Error al agregar la mesa"), open=True)
-                
+
                 page.update()
             except Exception as ex:
                 page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
@@ -418,11 +484,11 @@ def MeseraView(page):
     def abrir_dialog_gestionar_meseros():
         """Abre un diálogo para gestionar meseros."""
         meseros_list = ft.Column(height=300, scroll=ft.ScrollMode.AUTO)
-        
+
         def cargar_meseros():
             meseros = db.get_all_meseros()
             meseros_list.controls.clear()
-            
+
             if not meseros:
                 meseros_list.controls.append(ft.Text("No hay meseros registrados"))
             else:
@@ -439,12 +505,12 @@ def MeseraView(page):
                             )
                         ]),
                         padding=10,
-                        bgcolor=ft.Colors.SURFACE_VARIANT,
+                        bgcolor=ft.Colors.ON_SURFACE_VARIANT,
                         border_radius=5,
                         margin=2
                     )
                     meseros_list.controls.append(mesero_card)
-            
+
             page.update()
 
         def eliminar_mesero(doc_id):
@@ -465,7 +531,7 @@ def MeseraView(page):
             try:
                 id_mesero = id_mesero_field.value.strip()
                 nombre_mesero = nombre_mesero_field.value.strip()
-                
+
                 if not id_mesero or not nombre_mesero:
                     page.snack_bar = ft.SnackBar(ft.Text("ID y nombre son requeridos"), open=True)
                     page.update()
@@ -483,7 +549,7 @@ def MeseraView(page):
                     'id': id_mesero,
                     'nombre': nombre_mesero
                 }
-                
+
                 doc_id = db.add_mesero(datos_mesero)
                 if doc_id:
                     page.snack_bar = ft.SnackBar(ft.Text(f"Mesero {nombre_mesero} agregado exitosamente"), open=True)
@@ -492,7 +558,7 @@ def MeseraView(page):
                     cargar_meseros()
                 else:
                     page.snack_bar = ft.SnackBar(ft.Text("Error al agregar mesero"), open=True)
-                
+
                 page.update()
             except Exception as ex:
                 page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"), open=True)
@@ -527,39 +593,54 @@ def MeseraView(page):
     # Cargar mesas al iniciar
     cargar_mesas()
 
-    # Botones de acción
+    # Botones de acción mejorados
     botones_accion = ft.Row([
         ft.ElevatedButton(
             text="Agregar Mesa",
-            icon=ft.Icons.ADD,
+            icon=ft.Icons.ADD_CIRCLE_OUTLINE,
             on_click=lambda e: abrir_dialog_nueva_mesa(),
-            bgcolor=ft.Colors.GREEN_400,
-            color=ft.Colors.WHITE
+            bgcolor=ft.Colors.GREEN_600,
+            color=ft.Colors.WHITE,
+            style=ft.ButtonStyle(
+                elevation=3,
+                shape=ft.RoundedRectangleBorder(radius=10)
+            )
         ),
         ft.ElevatedButton(
             text="Gestionar Meseros",
-            icon=ft.Icons.PEOPLE,
+            icon=ft.Icons.PEOPLE_OUTLINE,
             on_click=lambda e: abrir_dialog_gestionar_meseros(),
-            bgcolor=ft.Colors.INDIGO_400,
-            color=ft.Colors.WHITE
+            bgcolor=ft.Colors.INDIGO_600,
+            color=ft.Colors.WHITE,
+            style=ft.ButtonStyle(
+                elevation=3,
+                shape=ft.RoundedRectangleBorder(radius=10)
+            )
         ),
         ft.ElevatedButton(
             text="Recargar",
             icon=ft.Icons.REFRESH,
             on_click=lambda e: cargar_mesas(),
-            bgcolor=ft.Colors.BLUE_400,
-            color=ft.Colors.WHITE
+            bgcolor=ft.Colors.BLUE_600,
+            color=ft.Colors.WHITE,
+            style=ft.ButtonStyle(
+                elevation=3,
+                shape=ft.RoundedRectangleBorder(radius=10)
+            )
         )
-    ], alignment=ft.MainAxisAlignment.CENTER, wrap=True)
+    ], alignment=ft.MainAxisAlignment.CENTER, wrap=True, spacing=10)
 
     return ft.Container(
         content=ft.Column([
-            ft.Text("Vista Mesera", size=24, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-            ft.Divider(height=2, color=ft.Colors.GREY_300),
+            ft.Row([
+                ft.Icon(ft.Icons.RESTAURANT_MENU, size=32, color=ft.Colors.INDIGO_600),
+                ft.Text("Vista Mesera", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_600)
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+            ft.Divider(height=2, color=ft.Colors.INDIGO_300),
             botones_accion,
-            ft.Divider(height=1, color=ft.Colors.GREY_200),
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
             mesas_list
-        ], spacing=10, scroll=ft.ScrollMode.AUTO),
-        padding=10,
+        ], spacing=15, scroll=ft.ScrollMode.AUTO),
+        padding=20,
         expand=True
     )

@@ -1,5 +1,5 @@
 import flet as ft
-import databasefire as db
+from dbf import databasefire as db
 from datetime import datetime
 
 def VentasView(page):
