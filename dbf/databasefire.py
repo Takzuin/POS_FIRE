@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import os
 from firebase_admin import auth
+import datetime
 
 # --- INICIALIZACIÓN DE FIRESTORE ---
 db_client = None

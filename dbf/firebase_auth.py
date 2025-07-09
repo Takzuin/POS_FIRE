@@ -2,6 +2,7 @@ from firebase_admin import auth
 import hashlib
 import firebase_admin
 from dbf.databasefire import db_client
+from firebase_admin import firestore
 
 def create_user_with_email_password(email, password, display_name=None):
     """Crea un usuario en Firebase Auth"""
